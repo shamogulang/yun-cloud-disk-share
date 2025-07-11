@@ -20,3 +20,6 @@ auth:
     - /error
     - /share/verify
     - /share/detail/*
+
+user:
+  auth: http://localhost:8081
