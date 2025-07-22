@@ -1,16 +1,10 @@
 package com.example.share.controller;
 
-import com.example.share.model.Result;
-import com.example.share.model.Share;
+import com.example.share.model.*;
 import com.example.share.service.ShareService;
 import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import java.util.List;
-import com.example.share.model.CreateShareRequest;
-import com.example.share.model.CreateShareResponse;
-import com.example.share.model.FileInfoDTO;
-import com.example.share.model.ShareVerifyRequest;
-import com.example.share.model.ShareDetailDTO;
 
 @RestController
 @RequestMapping("/share")
@@ -45,7 +39,7 @@ public class ShareController {
     }
 
     @PostMapping("/verify")
-    public Result<List<FileInfoDTO>> verify(@RequestBody ShareVerifyRequest req) {
+    public Result<List<FileInfoWithThumbnails>> verify(@RequestBody ShareVerifyRequest req) {
         return shareService.verify(req.getLinkId(), req.getPasswd());
     }
 

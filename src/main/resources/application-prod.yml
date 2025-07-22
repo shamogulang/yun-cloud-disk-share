@@ -18,7 +18,16 @@ mybatis:
 auth:
   whitelist:
     - /error
-    - /share/verify
-    - /share/detail/*
+
 user:
   auth: http://45.154.2.158:8081
+
+share:
+  url: http://45.154.2.158:8083/shared/
+
+file:
+  url: http://45.154.2.158:8080
+
+third:
+  auth:
+    secret: 12345678

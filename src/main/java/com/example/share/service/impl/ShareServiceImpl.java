@@ -1,28 +1,23 @@
 package com.example.share.service.impl;
 
+import com.example.share.feign.FileFeign;
+import com.example.share.feign.UserFeign;
 import com.example.share.mapper.ShareMapper;
-import com.example.share.model.Share;
+import com.example.share.model.*;
 import com.example.share.service.ShareService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 import java.util.List;
-import com.example.share.model.CreateShareRequest;
-import com.example.share.model.CreateShareResponse;
-import com.example.share.model.ShareContent;
+
 import com.example.share.mapper.ShareContentMapper;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 import java.util.Random;
 import java.util.ArrayList;
-import java.util.stream.Collectors;
 import java.util.Date;
-import java.util.Calendar;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import com.example.share.model.Result;
-import com.example.share.model.FileInfoDTO;
-import com.example.share.mapper.FileInfoMapper;
-import com.example.share.model.ShareDetailDTO;
 
 @Service
 public class ShareServiceImpl implements ShareService {
@@ -33,7 +28,12 @@ public class ShareServiceImpl implements ShareService {
     private ShareContentMapper shareContentMapper;
 
     @Resource
-    private FileInfoMapper fileInfoMapper;
+    private FileFeign fileFeign;
+    @Resource
+    private UserFeign userFeign;
+
+    @Value("${share.url:''}")
+    private String shareUrl;
 
     @Override
     public Share getById(Long id) {
@@ -56,7 +56,7 @@ public class ShareServiceImpl implements ShareService {
         }
         // 2. 生成外链ID、URL、密码
         String linkId = UUID.randomUUID().toString().replace("-", "");
-        String linkUrl = "http://localhost:5173/shared/" + linkId;
+        String linkUrl = shareUrl + linkId;
         String passwd = null;
         if (request.getEncrypt() != null && request.getEncrypt() == 1) {
             passwd = String.format("%04d", new Random().nextInt(10000));
@@ -129,7 +129,7 @@ public class ShareServiceImpl implements ShareService {
     }
 
     @Override
-    public Result<List<FileInfoDTO>> verify(String linkId, String passwd) {
+    public Result<List<FileInfoWithThumbnails>> verify(String linkId, String passwd) {
         Share share = shareMapper.selectByLinkId(linkId);
         if (share == null) {
             return Result.errorCode("分享不存在", 404);
@@ -151,9 +151,12 @@ public class ShareServiceImpl implements ShareService {
         for (ShareContent c : contents) {
             fileIds.add(c.getObjId());
         }
-        // 查询文件信息（假设有FileInfoMapper和FileInfoDTO）
-        List<FileInfoDTO> files = fileInfoMapper.selectByIds(fileIds);
-        return Result.success(files);
+        Result<List<FileInfoWithThumbnails>> userAuthDataResult = fileFeign.listByIds(new ListByIdsReq(fileIds,share.getUserId()));
+        int code = userAuthDataResult.getCode();
+        if(code != 200){
+            return Result.errorCode(userAuthDataResult.getMsg(), userAuthDataResult.getCode());
+        }
+        return Result.success(userAuthDataResult.getData());
     }
 
     @Override
@@ -162,14 +165,12 @@ public class ShareServiceImpl implements ShareService {
         if (share == null) {
             return Result.error("分享不存在");
         }
-        // mock feign调用用户模块获取username
-        // todo
-        String username = mockGetUsernameByUserId(share.getUserId());
+        Result<UserDto> userDto = userFeign.getUserInfo(share.getUserId());
         ShareDetailDTO dto = new ShareDetailDTO();
         dto.setLinkId(share.getLinkId());
         dto.setLinkUrl(share.getLinkUrl());
         dto.setUserId(share.getUserId());
-        dto.setUsername(username);
+        dto.setUsername(userDto.getData().getUsername());
         dto.setCreateTime(share.getCreateTime());
         dto.setExpireTime(share.getExpireTime());
         dto.setPubType(share.getPubType());
